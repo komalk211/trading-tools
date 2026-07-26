@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0A0E12">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="التداول الهادئ">
+<title>الماسح الموحّد — شبكة + DCA + تواب — v24</title>
+<style>
+  :root{
+    --bg:#0A0E12; --panel:#10161C; --panel-2:#151C23; --line:#232C34;
+    --ink:#E7EDF2; --ink-dim:#7C8A96; --gold:#C9A15A; --muted:#7C8A96;
+    --buy:#35C48F; --sell:#E2604F; --hold:#7C8A96; --warn:#E8B84B; --info:#5896E8;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'Inter',-apple-system,'Segoe UI',sans-serif; padding:16px; }
+  .mono{ font-family:'IBM Plex Mono','Courier New',monospace; }
+  .muted{ color:var(--muted); }
+  .wrap{ max-width:820px; margin:0 auto; }
+
+  .btc-banner{
+    border-radius:10px; padding:14px 16px; margin-bottom:14px;
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;
+    border:1px solid var(--line);
+  }
+  .btc-banner.safe{ background:rgba(53,196,143,0.08); border-color:rgba(53,196,143,0.35); }
+  .btc-banner.warn{ background:rgba(232,184,75,0.08); border-color:rgba(232,184,75,0.4); }
+  .btc-banner.halt{ background:rgba(226,96,79,0.1); border-color:rgba(226,96,79,0.5); }
+  .btc-banner .title{ font-weight:800; font-size:14px; }
+  .btc-banner .detail{ font-size:11.5px; color:var(--ink-dim); margin-top:3px; }
+  .btc-banner .stats{ display:flex; gap:14px; font-size:12px; }
+  .btc-banner .stat b{ display:block; font-size:14px; }
+
+  .tabs{ display:flex; gap:6px; margin-bottom:14px; border-bottom:1px solid var(--line); }
+  .tab{ padding:8px 14px; font-size:13px; color:var(--ink-dim); cursor:pointer; border-bottom:2px solid transparent; }
+  .tab.active{ color:var(--gold); border-color:var(--gold); font-weight:700; }
+  .tabpanel{ display:none; } .tabpanel.active{ display:block; }
+
+  .controls{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; align-items:center; }
+  .controls .hint{ font-size:11.5px; color:var(--ink-dim); }
+  input[type=number], input[type=text], button{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--ink);
+    padding:9px 12px; border-radius:6px; font-size:13px; font-family:inherit;
+  }
+  input[type=number]{ width:92px; }
+  button{ cursor:pointer; background:var(--gold); color:#1a1408; font-weight:700; border:none; }
+  button:hover{ filter:brightness(1.08); }
+  button:disabled{ opacity:0.5; cursor:not-allowed; }
+  button.mini{ background:#2a2f38; color:#e8e8e8; border:1px solid #454b56; border-radius:7px;
+    padding:6px 12px; font-size:12px; font-weight:600; }
+  button.mini:hover{ background:#343a45; }
+  button.ghost{ background:transparent; border:1px solid var(--line); color:var(--ink-dim);
+    font-size:11px; padding:5px 10px; font-weight:400; }
+
+  .status{ font-size:12.5px; color:var(--ink-dim); margin-bottom:10px; }
+  .loading{ color:var(--ink-dim); font-size:13px; padding:26px; text-align:center; }
+
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:10px; }
+  .card-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px; }
+  .symbol{ font-weight:800; font-size:15px; }
+  .rank{ font-size:11px; font-weight:800; background:var(--gold); color:#1a1408; border-radius:5px; padding:2px 7px; margin-inline-end:6px; }
+  .score{ font-size:12px; font-weight:800; color:var(--gold); font-family:'IBM Plex Mono','Courier New',monospace; }
+  .tag{ font-size:11px; font-weight:700; padding:3px 9px; border-radius:5px; }
+  .tag.TRENDING_UP{ background:rgba(53,196,143,0.15); color:var(--buy); }
+  .tag.TRENDING_DOWN{ background:rgba(226,96,79,0.15); color:var(--sell); }
+  .tag.CLEAN_RANGE{ background:rgba(201,161,90,0.15); color:var(--gold); }
+  .tag.DIRTY_RANGE{ background:rgba(226,96,79,0.12); color:var(--sell); }
+  .tag.MIXED{ background:rgba(124,138,150,0.15); color:var(--hold); }
+
+  .row{ display:flex; justify-content:space-between; font-size:12.5px; padding:5px 0; border-bottom:1px dashed var(--line); }
+  .row:last-child{ border-bottom:none; }
+  .row .k{ color:var(--ink-dim); }
+  .row .v{ font-weight:700; }
+  .v.pos{ color:var(--buy); } .v.neg{ color:var(--sell); }
+
+  /* صندوق القرار */
+  .bl{ border-radius:8px; padding:12px 13px; }
+  .bl-go{ background:rgba(53,196,143,0.13); border:1px solid rgba(53,196,143,0.45); }
+  .bl-exp{ background:rgba(88,150,232,0.12); border:1px solid rgba(88,150,232,0.45); }
+  .bl-wait{ background:rgba(232,184,75,0.12); border:1px solid rgba(232,184,75,0.45); }
+  .bl-no{ background:rgba(226,96,79,0.10); border:1px solid rgba(226,96,79,0.40); }
+  .bl-head{ font-size:16px; font-weight:800; line-height:1.6; }
+  .bl-rows{ font-size:13.5px; line-height:2.05; margin-top:8px; }
+  .bl-rows > div{ display:flex; justify-content:space-between; gap:10px;
+                  border-bottom:1px dashed rgba(255,255,255,0.07); }
+  .bl-rows > div:last-child{ border-bottom:none; }
+  .bl-rows span{ color:var(--muted); }
+  .bl-rows b{ font-family:'IBM Plex Mono',ui-monospace,Consolas,monospace; }
+  .bl-why{ margin-top:6px; font-size:12px; color:var(--muted); line-height:1.85; }
+
+  /* جداول */
+  table.lg{ width:100%; border-collapse:collapse; font-size:12.5px; margin-top:4px; }
+  table.lg th{ text-align:start; color:var(--muted); font-weight:600; padding:6px 4px;
+    border-bottom:1px solid rgba(255,255,255,0.10); }
+  table.lg td{ padding:6px 4px; border-bottom:1px dashed rgba(255,255,255,0.06); vertical-align:top; }
+  table.lg tr:last-child td{ border-bottom:none; }
+  .lg-wrap{ margin:16px 0; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:13px; }
+  .lg-head{ font-size:15px; font-weight:800; margin-bottom:9px; }
+  .lg-sub{ font-size:11.5px; font-weight:500; color:var(--muted); margin-inline-start:6px; }
+  .lg-scroll{ max-height:360px; overflow:auto; }
+  .lg-scroll table.lg th{ position:sticky; top:0; background:var(--panel); }
+
+  details.tech{ margin-top:8px; }
+  details.tech summary{ font-size:11.5px; color:var(--ink-dim); cursor:pointer; padding:4px 0; list-style-position:inside; }
+  details.tech summary:hover{ color:var(--ink); }
+  details.tech[open] summary{ margin-bottom:4px; }
+  .plan{ margin-top:8px; background:var(--panel-2); border-radius:6px; padding:10px; font-size:12.5px; line-height:1.9; }
+  .plan .label{ font-weight:700; }
+
+  .sec-head{ font-size:14px; font-weight:800; color:var(--gold); margin:16px 0 8px; }
+  .sec-head.dim{ color:var(--ink-dim); }
+  .sec-sub{ font-size:11.5px; color:var(--ink-dim); line-height:1.75; margin-bottom:10px; }
+  .mem{ font-size:12px; border-radius:6px; padding:7px 9px; line-height:1.7; margin-top:8px; }
+  .mem.stable{ background:rgba(53,196,143,0.10); color:var(--buy); }
+  .mem.changed{ background:rgba(232,184,75,0.10); color:var(--warn); }
+  .mem.new{ background:rgba(124,138,150,0.12); color:var(--ink-dim); }
+  .note{ font-size:11px; color:var(--ink-dim); margin-top:9px; line-height:1.8; }
+  .note.warn{ color:var(--warn); }
+  .empty{ font-size:12.5px; color:var(--ink-dim); background:var(--panel-2); border-radius:8px; padding:14px; line-height:1.85; }
+
+  .daybar{ background:var(--panel-2); border:1px solid var(--line); border-radius:8px;
+    padding:9px 11px; font-size:11.5px; color:var(--ink-dim); line-height:1.8; margin-bottom:12px; }
+  .daybar b{ color:var(--gold); }
+  .gap-ok{ color:var(--buy); font-weight:700; }
+  .gap-mid{ color:var(--warn); font-weight:700; }
+  .gap-bad{ color:var(--sell); font-weight:700; }
+
+  .bt-summary{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:14px; }
+  @media (max-width:600px){ .bt-summary{ grid-template-columns:1fr; } }
+  .bt-card{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  .bt-card h3{ font-size:12.5px; margin-bottom:8px; }
+  .bt-card .n{ font-size:22px; font-weight:800; }
+  .bt-card .sub{ font-size:11px; color:var(--ink-dim); margin-top:4px; }
+
+  .disclaimer{ margin-top:16px; font-size:11px; color:var(--ink-dim); border-top:1px solid var(--line); padding-top:10px; line-height:1.85; }
+  .disclaimer summary{ cursor:pointer; font-size:12px; color:var(--ink-dim); list-style-position:inside; padding:4px 0; }
+  .disclaimer summary:hover{ color:var(--ink); }
+  .disclaimer[open] summary{ margin-bottom:8px; color:var(--gold); }
+  #logBody input{ background:#1c1f26; color:#e8e8e8; border:1px solid #3a4049; border-radius:5px; padding:4px 7px; font-family:inherit; font-size:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="btcBanner" class="btc-banner"><span class="loading">جارِ فحص حالة BTC...</span></div>
+
+  <div id="tab-live">
+    <div class="controls">
+      <input type="number" id="minVolume" value="20" min="1">
+      <input type="number" id="scanCount" value="15" min="5" max="40">
+      <button id="scanBtn">مسح السوق الآن</button>
+    </div>
+    <div id="dayBar"></div>
+    <div class="controls">
+      <input type="text" id="watchSymbols" style="width:300px" placeholder="📌 مراكزك المفتوحة: TRX, DOGE">
+    </div>
+    <div class="status" id="status"></div>
+    <div id="watchWrap"></div>
+    <div id="results"></div>
+  </div>
+
+</div>
+
+<script>
+'use strict';
+
+/* ============================ ثوابت ============================ */
+const BASE = 'https://api.binance.com/api/v3';
+const STABLE_BASES = new Set(['USDC','TUSD','FDUSD','DAI','USDP','PYUSD','USDD','GUSD','EURI','USTC','SUSD','LUSD','USDE','BUSD','EUR','USD1']);
+
+const MIN_IDX  = 240;   // أول فهرس يُسمح بالتصنيف عنده (EMA200 مُدفّأة)
+const MIN_BARS = 260;   // أقل عدد شموع يومية مقبول للعملة
+
+const TWAP_FEES        = 1.012;              // +1.2% خام ≈ +1% صافي
+const TWAP_BUDGET_BARS = 18;                 // مهلة 3 أيام بشموع 4h
+const TWAP_DURS        = [1,2,3,6,9,12];     // = 4, 8, 12, 24, 36, 48 ساعة
+const MIN_TRIES        = 30;                 // أقل عدد محاولات لقبول مدة
+const MIN_HIT          = 60;                 // أقل نسبة نجاح مقبولة
+const MAX_DD           = 8;                  // أقصى تراجع مقبول تحت متوسطك (أسوأ 10%)
+const COND_MIN         = 60;                 // أقل عينة لتشريط المحاكاة بحالة اليوم
+
+const REGIME_MIN        = 60;                // أقل احتمال ارتداد مقبول لحالة خطر
+const REGIME_MIN_SAMPLE = 20;
+const RISKY_STATES = new Set(['TRENDING_DOWN','DIRTY_RANGE']);
+
+/* ============================ مؤشرات ============================ */
+function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
+
+// EMA مُسقّاة بمتوسط بسيط (v18 كانت تُسقّى بأول سعر — يلوّث EMA200 لمئات الشموع)
+function ema(values, period){
+  const out = new Array(values.length).fill(null);
+  if(values.length < period) return out;
+  let sum = 0;
+  for(let i=0;i<period;i++) sum += values[i];
+  out[period-1] = sum/period;
+  const k = 2/(period+1);
+  for(let i=period;i<values.length;i++) out[i] = values[i]*k + out[i-1]*(1-k);
+  return out;
+}
+function rsi(closes, period=14){
+  const out = new Array(closes.length).fill(null);
+  if(closes.length <= period) return out;
+  let gains=0, losses=0;
+  for(let i=1;i<=period;i++){ const d=closes[i]-closes[i-1]; if(d>=0) gains+=d; else losses-=d; }
+  let avgGain=gains/period, avgLoss=losses/period;
+  out[period] = 100-(100/(1+(avgLoss===0?100:avgGain/avgLoss)));
+  for(let i=period+1;i<closes.length;i++){
+    const d=closes[i]-closes[i-1], g=d>0?d:0, l=d<0?-d:0;
+    avgGain=(avgGain*(period-1)+g)/period; avgLoss=(avgLoss*(period-1)+l)/period;
+    out[i]=100-(100/(1+(avgLoss===0?100:avgGain/avgLoss)));
+  }
+  return out;
+}
+function atr(highs, lows, closes, period=10){
+  const tr=[highs[0]-lows[0]];
+  for(let i=1;i<closes.length;i++) tr.push(Math.max(highs[i]-lows[i], Math.abs(highs[i]-closes[i-1]), Math.abs(lows[i]-closes[i-1])));
+  const out = new Array(tr.length).fill(null);
+  if(tr.length < period) return out;
+  let s=0; for(let i=0;i<period;i++) s+=tr[i];
+  out[period-1]=s/period;
+  for(let i=period;i<tr.length;i++) out[i] = (out[i-1]*(period-1)+tr[i])/period; // Wilder
+  return out;
+}
+// Supertrend بالحزام المتتبّع الصحيح. v18 كانت مبسّطة بلا clamping و dir مهيّأة "صاعد"،
+// فكانت تعطي اتجاهًا صاعدًا افتراضيًا قبل توفّر ATR وتنقلب بسهولة.
+function supertrend(highs, lows, closes, period=10, mult=3){
+  const a = atr(highs, lows, closes, period);
+  const n = closes.length;
+  const dir = new Array(n).fill(null), st = new Array(n).fill(null);
+  let fUp=null, fLo=null, prevDir=1;
+  for(let i=0;i<n;i++){
+    if(a[i]==null) continue;
+    const hl2=(highs[i]+lows[i])/2;
+    let up = hl2 + mult*a[i], lo = hl2 - mult*a[i];
+    if(fUp!=null){
+      up = (up < fUp || closes[i-1] > fUp) ? up : fUp;
+      lo = (lo > fLo || closes[i-1] < fLo) ? lo : fLo;
+      prevDir = (prevDir===1 && closes[i] < fLo) ? -1 : (prevDir===-1 && closes[i] > fUp) ? 1 : prevDir;
+    } else {
+      prevDir = closes[i] > lo ? 1 : -1;
+    }
+    dir[i]=prevDir; st[i]= prevDir===1 ? lo : up;
+    fUp=up; fLo=lo;
+  }
+  return { dir, st };
+}
+function adx(highs, lows, closes, period=14){
+  const len = closes.length;
+  const out = new Array(len).fill(null);
+  if(len < period*3) return out;
+  const tr=[0], pdm=[0], mdm=[0];
+  for(let i=1;i<len;i++){
+    const up = highs[i]-highs[i-1], dn = lows[i-1]-lows[i];
+    pdm.push(up>dn && up>0 ? up : 0);
+    mdm.push(dn>up && dn>0 ? dn : 0);
+    tr.push(Math.max(highs[i]-lows[i], Math.abs(highs[i]-closes[i-1]), Math.abs(lows[i]-closes[i-1])));
+  }
+  const smooth = arr => {
+    const o = new Array(len).fill(null);
+    let s = arr.slice(1,period+1).reduce((a,b)=>a+b,0);
+    o[period]=s;
+    for(let i=period+1;i<len;i++){ s = s - (s/period) + arr[i]; o[i]=s; }
+    return o;
+  };
+  const trS=smooth(tr), pS=smooth(pdm), mS=smooth(mdm);
+  const dx=new Array(len).fill(null);
+  for(let i=period;i<len;i++){
+    if(!trS[i]) continue;
+    const pdi=100*(pS[i]/trS[i]), mdi=100*(mS[i]/trS[i]);
+    dx[i] = 100*Math.abs(pdi-mdi)/((pdi+mdi) || 1);
+  }
+  const seed = dx.slice(period, period*2).filter(v=>v!=null);
+  if(seed.length < period) return out;
+  out[period*2-1] = seed.reduce((a,b)=>a+b,0)/seed.length;
+  for(let i=period*2;i<len;i++){
+    if(dx[i]==null || out[i-1]==null) continue;
+    out[i] = (out[i-1]*(period-1)+dx[i])/period;
+  }
+  return out;
+}
+
+/* ============================ حارس BTC ============================ */
+// v19: الشمعة الجارية غير المكتملة تُستبعد دائمًا، وفشل الشبكة = تحذير (مستوى 1) لا "آمن".
+async function checkBTCGuard(){
+  const banner = document.getElementById('btcBanner');
+  try{
+    const [hRes, dRes] = await Promise.all([
+      fetch(`${BASE}/klines?symbol=BTCUSDT&interval=1h&limit=27`),
+      fetch(`${BASE}/klines?symbol=BTCUSDT&interval=1d&limit=6`)
+    ]);
+    const kl = (await hRes.json()).slice(0,-1);   // نحذف الساعة الجارية
+    const dKl = (await dRes.json()).slice(0,-1);  // نحذف اليوم الجاري
+    if(!Array.isArray(kl) || kl.length < 25) throw new Error('بيانات BTC غير كافية');
+    const closes = kl.map(k=>parseFloat(k[4]));
+    const now = closes.at(-1);
+    const chg1h  = ((now - closes.at(-2))/closes.at(-2))*100;
+    const chg4h  = ((now - closes.at(-5))/closes.at(-5))*100;
+    const chg24h = ((now - closes.at(-25))/closes.at(-25))*100;
+
+    const dC = dKl.map(k=>parseFloat(k[4]));
+    const absCh = [];
+    for(let i=1;i<dC.length;i++) absCh.push(Math.abs((dC[i]/dC[i-1]-1)*100));
+    const l3 = absCh.slice(-3);
+    const calming = l3.length===3 && l3.at(-1) < l3[0] && l3.at(-1) < 2.5;
+
+    let level='safe', title='BTC مستقر — التداول مفتوح', halt=0;
+    if(chg24h <= -10){ level='halt'; title='إيقاف طارئ — انهيار BTC خلال 24 ساعة'; halt=3; }
+    else if(chg4h <= -7){ level='halt'; title='إيقاف الدخول الجديد — هبوط حاد خلال 4 ساعات'; halt=2; }
+    else if(chg1h <= -5){ level='warn'; title='تحذير — هبوط سريع خلال ساعة، لا دخول جديد'; halt=1; }
+
+    banner.className = 'btc-banner ' + level;
+    banner.innerHTML = `
+      <div>
+        <div class="title">${title}</div>
+        <div class="detail">مستوى الحارس: ${['آمن','تحذير (1)','إيقاف (2)','طارئ (3)'][halt]} ·
+          تقلّب آخر 3 أيام مُغلقة: ${calming?'يهدأ ✅':'لسا مرتفع ❌'} <i>(معلومة فقط — لا تدخل بالقرار)</i></div>
+      </div>
+      <div class="stats mono">
+        <div class="stat"><span>1س</span><b style="color:${chg1h>=0?'var(--buy)':'var(--sell)'}">${chg1h.toFixed(2)}%</b></div>
+        <div class="stat"><span>4س</span><b style="color:${chg4h>=0?'var(--buy)':'var(--sell)'}">${chg4h.toFixed(2)}%</b></div>
+        <div class="stat"><span>24س</span><b style="color:${chg24h>=0?'var(--buy)':'var(--sell)'}">${chg24h.toFixed(2)}%</b></div>
+      </div>`;
+    return halt;
+  } catch(e){
+    banner.className = 'btc-banner warn';
+    banner.innerHTML = `<div><div class="title">تعذّر فحص BTC — النظام في وضع تحذير احتياطي</div>
+      <div class="detail">${e.message} · لا دخول جديد حتى ينجح الفحص. أعد المسح.</div></div>`;
+    return 1;   // فشل مُغلق: لا نفتح الباب عند انقطاع الشبكة
+  }
+}
+
+/* ==================== أدوات جودة النطاق ==================== */
+function lowerLowsCheck(lows){
+  const recent = lows.slice(-5), prior = lows.slice(-10,-5);
+  if(prior.length < 5) return false;
+  return Math.min(...recent) < Math.min(...prior) * 0.995;
+}
+function volumeDirectionDirty(closes, volumes){
+  const n = closes.length;
+  if(n < 21) return false;
+  let downVol=0, downN=0, upVol=0, upN=0;
+  for(let i=n-20;i<n;i++){
+    if(closes[i]-closes[i-1] < 0){ downVol+=volumes[i]; downN++; } else { upVol+=volumes[i]; upN++; }
+  }
+  const aDown = downN? downVol/downN : 0, aUp = upN? upVol/upN : 0;
+  return aDown > aUp*1.15;
+}
+
+/* ==================== التصنيف اليومي المشترك ==================== */
+function classifyAtIndex(idx, closes, highs, lows, vols, e50, e200, adxArr, stDir){
+  if(idx < MIN_IDX) return null;
+  if(e50[idx]==null || e200[idx]==null || e200[idx-20]==null || adxArr[idx]==null) return null;
+  const lastAdx = adxArr[idx];
+  const dir = stDir ? stDir[idx] : null;
+  const slope = ((e200[idx] - e200[idx-20]) / e200[idx-20]) * 100;
+
+  const prev5 = (idx-5>=0 && adxArr[idx-5]!=null) ? adxArr[idx-5] : lastAdx;
+  const adxChange = lastAdx - prev5;
+
+  const hi10 = Math.max(...highs.slice(idx-9, idx+1));
+  const lo10 = Math.min(...lows.slice(idx-9, idx+1));
+  const range10Pct = ((hi10-lo10)/closes[idx])*100;
+
+  let state, subLabel='';
+  const trendUp   = e50[idx]>e200[idx] && lastAdx>25 && slope>0.3 && dir===1;
+  const trendDown = e50[idx]<e200[idx] && lastAdx>25 && dir===-1;
+
+  if(trendUp) state='TRENDING_UP';
+  else if(trendDown){ state='TRENDING_DOWN'; subLabel = adxChange<-3?' (يضعف)':(adxChange>3?' (يتقوى)':''); }
+  else if(lastAdx < 20){
+    const flags = [
+      lowerLowsCheck(lows.slice(idx-14, idx+1)),
+      Math.abs(slope)>1.5 && slope<0,
+      volumeDirectionDirty(closes.slice(0,idx+1), vols.slice(0,idx+1)),
+      range10Pct >= 15
+    ].filter(Boolean).length;
+    state = flags>=2 ? 'DIRTY_RANGE' : 'CLEAN_RANGE';
+  } else state='MIXED';
+
+  return {state, subLabel, adx:lastAdx, adxChange, ema200Slope:slope, range10Pct, stDir:dir};
+}
+function stateLabel(s){
+  return {TRENDING_UP:'صاعد', TRENDING_DOWN:'هابط',
+    CLEAN_RANGE:'عرضي نظيف', DIRTY_RANGE:'عرضي غير نظيف', MIXED:'مختلط'}[s] || '—';
+}
+function computeDayStates(closes, highs, lows, vols, e50, e200, adxArr, stDir, closeTimes){
+  const out = new Array(closes.length);
+  for(let i=0;i<closes.length;i++){
+    const c = i>=MIN_IDX ? classifyAtIndex(i, closes, highs, lows, vols, e50, e200, adxArr, stDir) : null;
+    out[i] = { closeTime: closeTimes[i], state: c ? c.state : null };
+  }
+  return out;
+}
+
+/* ==================== نص المدد ==================== */
+function durTxt(totalH){
+  totalH = Math.round(totalH);
+  const hU = h => h===1?'ساعة واحدة':h===2?'ساعتين':(h>=3&&h<=10)?(h+' ساعات'):(h+' ساعة');
+  const dU = d => d===1?'يوم':d===2?'يومين':(d>=3&&d<=10)?(d+' أيام'):(d+' يوم');
+  if(totalH <= 24) return hU(totalH);
+  const d = Math.floor(totalH/24), rem = totalH%24;
+  return rem===0 ? dU(d) : dU(d)+' و'+hU(rem);
+}
+// v21: دقة متغيّرة — toFixed(4) كانت تعرض 0.0000 لأي عملة تحت السنت.
+const fmtPx = p => {
+  if(p==null || !isFinite(p)) return '—';
+  const a = Math.abs(p);
+  return a>=100 ? p.toFixed(2) : a>=1 ? p.toFixed(4) : a>=0.01 ? p.toFixed(5)
+       : a>=0.0001 ? p.toFixed(7) : p.toPrecision(4);
+};
+// v21: يوم محلي. toISOString كان يعطي يوم UTC، فـ«أمس» كان يتبدّل ٣ الفجر عندك
+// بينما كل باقي النظام يعمل بحدود محلية.
+function localDay(ts){
+  const d = new Date(ts ?? Date.now());
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+/* ==================== احتمال ارتداد الحالة ==================== */
+// v19: الأيام غير المصنَّفة تُستبعد من المقام بدل أن تُحتسب "ما ارتدّت".
+function regimePersistence(dayStates, currentState){
+  let total=0, rebounded=0;
+  for(let k=0;k<dayStates.length-1;k++){
+    if(dayStates[k].state !== currentState) continue;
+    const nx = dayStates[k+1].state;
+    if(!nx) continue;
+    total++;
+    if(!RISKY_STATES.has(nx)) rebounded++;
+  }
+  if(total < REGIME_MIN_SAMPLE) return { prob:null, sample: total };
+  return { prob: Math.round(rebounded/total*100), sample: total };
+}
+
+/* ==================== وسم شموع 4h بحالة آخر يوم مُغلق ==================== */
+// إصلاح جذري لـ v18: كانت تسِم الشمعة بحالة اليوم الذي تقع *داخله*، وحالة ذلك اليوم
+// محسوبة على إغلاقه — أي أن المحاكاة كانت تعرف نهاية اليوم قبل أن يبدأ. تسريب مستقبلي.
+function tagBarDays(h4K, dayStates){
+  const tags = new Array(h4K.length).fill(null);
+  let di = 0;
+  for(let j=0;j<h4K.length;j++){
+    const ts = h4K[j][0];
+    while(di < dayStates.length && dayStates[di].closeTime <= ts) di++;
+    tags[j] = di > 0 ? dayStates[di-1].state : null;   // آخر يوم مُغلق قبل بداية الشمعة
+  }
+  return tags;
+}
+
+/* ==================== القاضي: محاكاة توابك ==================== */
+function simulateTwap(h4K, dayStates, currentState){
+  if(!Array.isArray(h4K) || h4K.length < 200) return null;
+  const b = h4K.map(k=>({
+    high: parseFloat(k[2]), low: parseFloat(k[3]),
+    typ: (parseFloat(k[2])+parseFloat(k[3])+parseFloat(k[4]))/3
+  }));
+  let tags=null, conditioned=false, matchedSample=null;
+  if(dayStates && currentState){
+    tags = tagBarDays(h4K, dayStates);
+    matchedSample = tags.filter(t => t === currentState).length;
+    conditioned = matchedSample >= COND_MIN;
+  }
+  const pct = (a,q) => { if(!a.length) return null;
+    const s=a.slice().sort((x,y)=>x-y); return s[Math.min(s.length-1, Math.floor(s.length*q))]; };
+
+  const out = [];
+  const budget = TWAP_BUDGET_BARS;
+  for(const D of TWAP_DURS){
+    let tries=0, hits=0; const waits=[], drops=[];
+    for(let i=0; i+budget < b.length; i++){
+      if(conditioned && tags[i] !== currentState) continue;
+      tries++;
+      let sum=0, avg=0, worst=0, hit=false, elapsed=budget;
+      for(let m=0;m<D;m++){
+        const j=i+m; sum += b[j].typ; avg = sum/(m+1);
+        worst = Math.max(worst, (avg - b[j].low)/avg*100);
+      }
+      const target = avg*TWAP_FEES;
+      for(let j=i+D;j<i+budget;j++){
+        worst = Math.max(worst, (avg - b[j].low)/avg*100);
+        if(b[j].high >= target){ hit=true; elapsed=j-i+1; break; }
+      }
+      if(hit){ hits++; waits.push(elapsed); }
+      drops.push(worst);
+    }
+    if(tries < MIN_TRIES) continue;
+    out.push({
+      durH: D*4,
+      hitRate: Math.round(hits/tries*100),
+      tries,
+      waitH:  pct(waits,0.5) != null ? pct(waits,0.5)*4 : null,
+      ddTyp:  pct(drops,0.5),
+      ddP90:  pct(drops,0.9)
+    });
+  }
+  if(!out.length && conditioned) return simulateTwap(h4K, null, null);
+  if(!out.length) return null;
+  out.sort((x,y) => (y.hitRate - x.hitRate) || ((x.durH+(x.waitH||0)) - (y.durH+(y.waitH||0))));
+  const best = out[0];
+  const near = out.filter(o => Math.abs(o.hitRate - best.hitRate) <= 5).map(o=>o.durH);
+  return { best, all: out, conditioned, matchedSample,
+           durRange: { lo: Math.min(...near), hi: Math.max(...near) } };
+}
+
+// الترتيب: نجاح مُقلَّص بالعينة + سرعة + ضِيق التراجع. (v18 كانت ترتّب بنسبة النجاح الخام وحدها.)
+function entryScore(sim){
+  if(!sim) return null;
+  const b = sim.best;
+  const shrunk = 50 + (b.hitRate - 50) * (b.tries/(b.tries+40));
+  const speed  = b.waitH!=null ? clamp((1 - b.waitH/(TWAP_BUDGET_BARS*4))*100, 0, 100) : 30;
+  const risk   = clamp(100 - (b.ddP90||0)*10, 0, 100);
+  return { score: shrunk*0.6 + speed*0.2 + risk*0.2, shrunk, speed, risk };
+}
+
+/* ==================== الشاهد اليومي (سياق فقط) ==================== */
+function daysToGain(closes, highs, idx, gainPct, maxDays){
+  const target = closes[idx] * (1 + gainPct/100);
+  for(let j=idx+1; j<=idx+maxDays && j<closes.length; j++) if(highs[j] >= target) return j-idx;
+  return null;
+}
+// يُبنى من dayStates الجاهزة — v18 كانت تعيد تصنيف كل التاريخ مرتين (مرة هنا ومرة لـ dayStates).
+function witnessFromStates(dayStates, closes, highs, target){
+  const W = 7;
+  let prev=null, n=0, wins=0, retSum=0, bWins=0, bTotal=0;
+  const daysTo=[];
+  for(let i=0;i<dayStates.length-W;i++){
+    const s = dayStates[i].state;
+    if(!s){ prev=null; continue; }
+    bTotal++;
+    if(daysToGain(closes,highs,i,1,W) != null) bWins++;
+    const isT = s!==prev; prev = s;
+    if(!isT || s!==target) continue;
+    n++;
+    const d = daysToGain(closes,highs,i,1,W);
+    if(d!=null){ wins++; daysTo.push(d); }
+    retSum += ((closes[i+W]-closes[i])/closes[i])*100;
+  }
+  const baseline = bTotal ? bWins/bTotal*100 : 50;
+  const winRate  = n ? wins/n*100 : 0;
+  const edge     = winRate - baseline;
+  const avgRet   = n ? retSum/n : 0;
+  const sorted   = daysTo.slice().sort((a,b)=>a-b);
+  const medDays  = sorted.length ? sorted[Math.floor(sorted.length/2)] : null;
+  const reach24  = n ? Math.round(daysTo.filter(d=>d===1).length/n*100) : null;
+
+  let cls, text;
+  if(n < 15){
+    cls='warn';
+    text=`لا حكم — هذا الوضع تكرر ${n} مرة فقط كنقطة تحول في تاريخ العملة. عامله كمعلومة ناقصة.`;
+  } else if(edge >= 5){
+    cls='good';
+    text=`تاريخيًا: بعد دخول العملة هذا الوضع، وصلت +1% خلال 7 أيام في ${Math.round(winRate)}% من ${n} حالة — بأفضلية ${Math.round(edge)} نقطة فوق خط الأساس (${Math.round(baseline)}%). متوسط عائد 7 أيام ${avgRet>=0?'+':''}${avgRet.toFixed(1)}%.`;
+  } else if(edge <= -5){
+    cls='bad';
+    text=`تاريخيًا: هذا الوضع أضعف من العشوائي على هذه العملة — ${Math.round(winRate)}% من ${n} حالة مقابل خط أساس ${Math.round(baseline)}%. متوسط عائد 7 أيام ${avgRet.toFixed(1)}%.`;
+  } else {
+    cls='neutral';
+    text=`التاريخ لا يعطي أفضلية: ${Math.round(winRate)}% من ${n} حالة مقابل خط أساس ${Math.round(baseline)}% — فرق داخل الضجيج.`;
+  }
+  return { n, winRate, baseline, edge, avgRet, medDays, reach24, cls, text };
+}
+
+/* ==================== شمعة يومية بحدود ساعتك ==================== */
+let SCAN_TS = null;
+function stampScan(){ SCAN_TS = Date.now(); }
+function scanNow(){ return SCAN_TS || Date.now(); }
+function boundaryHour(){ return new Date(scanNow()).getHours(); }
+
+function buildCustomDailyBars(h1K, bh){
+  const tzOffMin = new Date().getTimezoneOffset();
+  const shiftMs  = (bh*60 + tzOffMin) * 60000;
+  const DAY = 86400000, now = scanNow();
+  const buckets = new Map();
+  for(const k of h1K){
+    const d = Math.floor((k[0] - shiftMs) / DAY);
+    if(!buckets.has(d)) buckets.set(d, []);
+    buckets.get(d).push(k);
+  }
+  let out = [];
+  [...buckets.keys()].sort((a,b)=>a-b).forEach(d => {
+    const arr = buckets.get(d);
+    const startMs = d*DAY + shiftMs, endMs = startMs + DAY;
+    if(now < endMs) return;      // اليوم الجاري لم يكتمل
+    if(arr.length < 24) return;  // v19: 24 شمعة كاملة أو لا شيء
+    out.push({
+      openTime:startMs, closeTime:endMs,
+      high: Math.max(...arr.map(x=>parseFloat(x[2]))),
+      low:  Math.min(...arr.map(x=>parseFloat(x[3]))),
+      close: parseFloat(arr[arr.length-1][4]),
+      vol:  arr.reduce((a,x)=>a+parseFloat(x[5]),0)
+    });
+  });
+  // v19: لا نسمح بثقب داخل السلسلة — نأخذ آخر مقطع متصل فقط.
+  // (v18 كانت تحذف الأيام الناقصة بصمت فتُحسب EMA/ADX على سلسلة مثقوبة.)
+  let cut = 0;
+  for(let i=out.length-1;i>0;i--){
+    if(out[i].openTime !== out[i-1].closeTime){ cut = i; break; }
+  }
+  return out.slice(cut);
+}
+
+let LAST_BAR = null;
+function renderDayBar(){
+  const el = document.getElementById('dayBar');
+  if(!el) return;
+  if(!LAST_BAR){ el.innerHTML=''; return; }
+  if(!LAST_BAR.custom){ el.innerHTML = `<div class="daybar gap-bad">⚠️ بيانات متأخرة</div>`; return; }
+  const mins = Math.round((Date.now() - LAST_BAR.closeTime)/60000);
+  const hrs = Math.floor(mins/60), rem = mins%60;
+  const hWord = hrs===1?'ساعة':(hrs===2?'ساعتين':(hrs<11?`${hrs} ساعات`:`${hrs} ساعة`));
+  const ago = mins < 60 ? `${mins} دقيقة` : (rem ? `${hWord} و${rem} دقيقة` : hWord);
+  const fresh = mins <= 90 ? 'gap-ok' : (mins <= 360 ? 'gap-mid' : 'gap-bad');
+  el.innerHTML = `<div class="daybar">🕕 محدّث قبل <span class="${fresh}">${ago}</span></div>`;
+}
+function gapClass(g){ return Math.abs(g) < 0.5 ? 'gap-ok' : (Math.abs(g) < 1 ? 'gap-mid' : 'gap-bad'); }
+function gapText(r){
+  if(r.gapPct == null) return '';
+  const g = r.gapPct;
+  const verdict = Math.abs(g) < 0.5 ? 'مطابق تقريبًا' : (g >= 1 ? 'الحركة سبقتك — الدخول الآن أغلى' : (g <= -1 ? 'أرخص من المرجع' : 'انزياح متوسط'));
+  return `السعر الآن <span class="${gapClass(g)}">${g>=0?'+':''}${g.toFixed(2)}%</span> عن إغلاق شمعتك (${verdict})`;
+}
+
+/* ==================== المرشّحون ==================== */
+// v19: عدد العملات صار مُدخلًا. في v18 كان .slice(0,15) ثابتًا فوق فلتر الحجم،
+// فتنزيل الحد الأدنى للحجم لم يكن يغيّر شيئًا إطلاقًا.
+async function fetchCandidates(minVolUSD, count){
+  const all = await (await fetch(`${BASE}/ticker/24hr`)).json();
+  return all
+    .filter(t => t.symbol.endsWith('USDT'))
+    .filter(t => !/UP|DOWN|BULL|BEAR/.test(t.symbol))
+    .filter(t => !STABLE_BASES.has(t.symbol.replace('USDT','')))
+    .filter(t => parseFloat(t.quoteVolume) >= minVolUSD)
+    .sort((a,b)=> parseFloat(b.quoteVolume)-parseFloat(a.quoteVolume))
+    .slice(0, count);
+}
+
+/* ==================== تحليل عملة ==================== */
+async function analyzeSymbol(symbol, quoteVolume){
+  const [dRes, hRes, h1Res] = await Promise.all([
+    fetch(`${BASE}/klines?symbol=${symbol}&interval=1d&limit=1000`),
+    fetch(`${BASE}/klines?symbol=${symbol}&interval=4h&limit=1000`),
+    fetch(`${BASE}/klines?symbol=${symbol}&interval=1h&limit=720`)
+  ]);
+  const dK = await dRes.json(), hK = await hRes.json(), h1K = await h1Res.json();
+  if(!Array.isArray(dK) || dK.length < MIN_BARS || !Array.isArray(hK) || !Array.isArray(h1K) || !h1K.length) return null;
+
+  const custom = buildCustomDailyBars(h1K, boundaryHour());
+  let bars, usedCustom = false;
+  if(custom.length >= 20){
+    const cut = custom[0].openTime;
+    bars = dK.filter(k => k[6] < cut)
+             .map(k=>({high:+k[2], low:+k[3], close:+k[4], vol:+k[5], closeTime:k[6]}))
+             .concat(custom);
+    usedCustom = true;
+  } else {
+    bars = dK.slice(0,-1).map(k=>({high:+k[2], low:+k[3], close:+k[4], vol:+k[5], closeTime:k[6]}));
+  }
+  if(bars.length < MIN_BARS) return null;
+
+  const lastBar = bars[bars.length-1];
+  if(!LAST_BAR || lastBar.closeTime > LAST_BAR.closeTime) LAST_BAR = {closeTime:lastBar.closeTime, custom:usedCustom};
+
+  const dC = bars.map(b=>b.close), dH = bars.map(b=>b.high), dL = bars.map(b=>b.low), dV = bars.map(b=>b.vol);
+  const e50 = ema(dC,50), e200 = ema(dC,200), adxD = adx(dH,dL,dC,14), stD = supertrend(dH,dL,dC,10,3);
+  const c = classifyAtIndex(dC.length-1, dC, dH, dL, dV, e50, e200, adxD, stD.dir);
+  if(!c) return null;
+
+  const r = { symbol, quoteVolume, ...c };
+  r.price = dC.at(-1);
+  r.usedCustom = usedCustom;
+  r.livePrice = parseFloat(h1K[h1K.length-1][4]);
+  r.gapPct = r.price ? ((r.livePrice/r.price - 1)*100) : null;
+
+  // تصنيف كل يوم مرة واحدة — يخدم الارتداد والمحاكاة والشاهد معًا
+  const dayStates = computeDayStates(dC, dH, dL, dV, e50, e200, adxD, stD.dir, bars.map(x=>x.closeTime));
+  r.regime  = regimePersistence(dayStates, c.state);
+  r.twapSim = simulateTwap(hK, dayStates, c.state);
+  r.entry   = entryScore(r.twapSim);
+  r.witness = witnessFromStates(dayStates, dC, dH, c.state);
+  // العرضي النظيف فقط يحتاج قياس شبكة (على شموع الساعة لآخر ~٣٠ يوم)
+  r.grid    = (c.state==='CLEAN_RANGE') ? optimizeGrid(h1K, 100) : null;
+  // الصاعد يحتاج قياس بوت متوسط التكلفة DCA
+  r.dca     = (c.state==='TRENDING_UP') ? runDca(h1K) : null;
+
+  // سياق 4 ساعات (عرض فقط)
+  const hC = hK.map(k=>+k[4]), hH = hK.map(k=>+k[2]), hL = hK.map(k=>+k[3]);
+  r.rsi4h = rsi(hC,14).at(-1);
+  r.adx4h = adx(hH,hL,hC,14).at(-1);
+  r.st4h  = supertrend(hH,hL,hC,10,3).dir.at(-1);
+  return r;
+}
+
+/* ==================== وحدة الشبكة (مدمجة من المختبر) ==================== */
+// نفس منطق مختبر الشبكة: يجرّب نطاقات (مئينات) × عدد شبكات، يحاكي، ويرتّب
+// بمعادلة أمان تعاقب الكسر لتحت والخسارة المعلّقة — لا بأعلى ربح خام.
+function gridPercentile(sorted,p){
+  const i=(sorted.length-1)*p, lo=Math.floor(i), hi=Math.ceil(i);
+  return lo===hi?sorted[lo]:sorted[lo]+(sorted[hi]-sorted[lo])*(i-lo);
+}
+function gridSimulate(cands, L, U, N, capital, feeRoundPct){
+  const spacing=(U-L)/N, perGrid=capital/N, feeFrac=feeRoundPct/100;
+  const levels=[];
+  for(let i=0;i<N;i++){ const b=L+i*spacing; levels.push({buy:b,sell:b+spacing,holding:false,coins:0}); }
+  let realized=0, completed=0, inR=0, below=0;
+  for(const c of cands){
+    if(c.c<L) below++; else if(c.c<=U) inR++;
+    for(const lv of levels){
+      if(!lv.holding && c.l<=lv.buy && c.h>=lv.sell){ realized+=(perGrid/lv.buy)*spacing-perGrid*feeFrac; completed++; continue; }
+      if(!lv.holding && c.l<=lv.buy){ lv.holding=true; lv.coins=perGrid/lv.buy; }
+      else if(lv.holding && c.h>=lv.sell){ realized+=lv.coins*spacing-perGrid*feeFrac; completed++; lv.holding=false; lv.coins=0; }
+    }
+  }
+  const finalP=cands[cands.length-1].c;
+  let openCost=0, openVal=0;
+  for(const lv of levels) if(lv.holding){ openCost+=perGrid; openVal+=lv.coins*finalP; }
+  const unreal=openVal-openCost, total=cands.length;
+  return { L,U,N,spacing, realizedPct:realized/capital*100,
+    netPct:(realized+unreal)/capital*100, unrealLossPct:Math.max(0,-unreal/capital*100),
+    inRangePct:inR/total*100, belowPct:below/total*100, completed,
+    gridNetPct:(spacing/L-feeFrac)*100 };
+}
+function gridSafety(r){
+  if(r.belowPct<8 && r.unrealLossPct<5)  return {t:'آمن',   c:'go'};
+  if(r.belowPct<20 && r.unrealLossPct<12) return {t:'متوسط', c:'mid'};
+  return {t:'مخاطرة', c:'risk'};
+}
+// يُقاس على شموع الساعة لآخر ~٣٠ يوم (النطاق الحالي الذي تتأرجح فيه العملة)
+function optimizeGrid(h1K, capital=100){
+  if(!Array.isArray(h1K) || h1K.length < 120) return null;
+  const cands = h1K.map(k=>({h:+k[2], l:+k[3], c:+k[4]}));
+  const sorted = cands.map(c=>c.c).slice().sort((a,b)=>a-b);
+  const ranges=[[0.03,0.97],[0.07,0.93],[0.12,0.88],[0.18,0.82]];
+  const grids=[20,30,45,70,100];
+  let best=null;
+  for(const [pl,pu] of ranges){
+    const L=gridPercentile(sorted,pl), U=gridPercentile(sorted,pu);
+    if(!(U>L)) continue;
+    for(const N of grids){
+      const r=gridSimulate(cands,L,U,N,capital,0.2);
+      if(r.gridNetPct<=0.1 || r.completed<15) continue;
+      const s = r.netPct - 0.6*r.belowPct - 0.8*r.unrealLossPct;
+      if(!best || s>best.s) best={...r, s, safety:gridSafety(r)};
+    }
+  }
+  return best;
+}
+// قرار الشبكة لعملة عرضية نظيفة — بنفس شكل قرار التواب ليعرضه renderCard كما هو
+function evaluateGrid(r){
+  const g = r.grid;
+  const empty = {ok:false, hit:null, durH:null, score:null, rows:[], rec:null};
+  if(!g) return {...empty, durText:'—', cls:'bl-no', act:'لا تدخل',
+    head:'🔴 لا تدخل — تعذّر قياس شبكة',
+    why:['ما توفّرت بيانات ساعة كافية (آخر ~٣٠ يوم) لقياس شبكة موثوقة على هذه العملة.']};
+
+  if(g.gridNetPct <= 0.1) return {...empty, durText:'شبكة غير مجدية', cls:'bl-no', act:'لا تدخل',
+    head:'🔴 لا تدخل — الرسوم تأكل الشبكة',
+    why:[`المسافة بين خطوط الشبكة أصغر من الرسوم على هذه العملة — كل صفقة تخسر بالعمولة. تذبذبها أضيق من أن يُربح شبكيًا.`]};
+
+  if(g.belowPct >= 25 || g.unrealLossPct > 15) return {...empty, durText:`شبكة ${fmtPx(g.L)}–${fmtPx(g.U)}`, cls:'bl-no', act:'لا تدخل',
+    head:'🔴 لا تدخل — تكسر النطاق كثيرًا',
+    why:[`رغم أنها مصنّفة عرضية، السعر خرج تحت النطاق ${g.belowPct.toFixed(0)}% من آخر ٣٠ يوم — الشبكة ستعلّق مراكز خسرانة وتتوقف. غير آمنة الآن.`]};
+
+  const sf = g.safety;
+  const cls = sf.c==='go' ? 'bl-go' : (sf.c==='mid' ? 'bl-exp' : 'bl-no');
+  const score = clamp(55 + g.netPct*3 - g.belowPct*0.6 - g.unrealLossPct*0.8, 0, 100);
+  return {
+    ok:true, hit:null, durH:null, score,
+    durText:`شبكة ${fmtPx(g.L)}–${fmtPx(g.U)}`,
+    cls, act:'شغّل شبكة',
+    head: sf.c==='go' ? '🟢 شغّل شبكة — عرضي نظيف وآمن' : '🔵 شغّل شبكة — عرضي نظيف (حجم صغير)',
+    rows:[
+      ['📌 النطاق (انسخه لبينانس)', `${fmtPx(g.L)} – ${fmtPx(g.U)}`],
+      ['📌 عدد الشبكات', String(g.N)],
+      ['📌 نوع الشبكة', 'حسابي'],
+      ['الربح المتوقع (آخر ٣٠ يوم)', `${g.netPct>=0?'+':''}${g.netPct.toFixed(2)}%`],
+      ['وقت داخل النطاق', `${g.inRangePct.toFixed(0)}%`],
+      ['مستوى الأمان', sf.t]
+    ],
+    why:[
+      `هذه العملة عرضية نظيفة الآن — أفضل سوق للشبكة: تشتري كل نزول وتبيع كل صعود تلقائيًا داخل النطاق بلا ما تختار توقيتًا`,
+      `على آخر ٣٠ يوم بقيت داخل النطاق ${g.inRangePct.toFixed(0)}% من الوقت، ونفّذت ${g.completed} صفقة، وربح الشبكة الواحدة ${g.gridNetPct.toFixed(2)}% صافٍ فوق الرسوم`,
+      g.belowPct>0
+        ? `كسرت النطاق لتحت ${g.belowPct.toFixed(0)}% من الوقت — راقبها، وإذا نزلت تحت ${fmtPx(g.L)} أوقف الشبكة (فعّل «بيع الكل عند التوقّف»)`
+        : `ما كسرت النطاق لتحت ولا مرة في الفترة — إشارة أمان قوية`
+    ],
+    rec:{ type:'grid', sym:r.symbol, price:(r.livePrice??r.price), L:g.L, U:g.U, N:g.N, net:+g.netPct.toFixed(2) }
+  };
+}
+
+/* ==================== وحدة متوسط التكلفة DCA (بوت بينانس) ==================== */
+// يؤتمت طريقة كومال: يشتري كل نزول dropStep، ويبيع الدفعة عند ربح tpGross، ويعيد (إصلاح).
+// بلا سقف علوي — فيركب الصعود، لكن بلا أرضية أيضًا فيخطر في الهبوط المستمر.
+function dcaSimulate(cands, dropStep, tpGross, maxOrders, feeFrac){
+  let coins=0, cost=0, buys=0, lastBuy=null, realized=0, cycles=0, worstDD=0;
+  const slice=1, cap=maxOrders*slice;
+  for(const c of cands){
+    if(buys===0){ coins+=slice/c.c; cost+=slice; buys=1; lastBuy=c.c; }
+    else {
+      while(buys<maxOrders && c.l <= lastBuy*(1-dropStep)){
+        const px=lastBuy*(1-dropStep);
+        coins+=slice/px; cost+=slice; buys++; lastBuy=px;
+      }
+    }
+    const avg=cost/coins;
+    worstDD=Math.max(worstDD,(avg-c.l)/avg*100);
+    if(c.h >= avg*(1+tpGross)){ realized += cost*(tpGross-feeFrac); cycles++; coins=0; cost=0; buys=0; lastBuy=null; }
+  }
+  const finalP=cands[cands.length-1].c;
+  let unreal=0, stuck=false;
+  if(buys>0){ const avg=cost/coins; unreal=coins*finalP-cost; stuck=(finalP < avg*0.97); }
+  return { cycles, realizedPct:realized/cap*100, netPct:(realized+unreal)/cap*100,
+    unrealLossPct:Math.max(0,-unreal/cap*100), worstDD, stuck, buysAtEnd:buys };
+}
+function dcaSafety(r){
+  if(!r.stuck && r.worstDD<6  && r.unrealLossPct<5)  return {t:'آمن',   c:'go'};
+  if(!r.stuck && r.worstDD<12 && r.unrealLossPct<12) return {t:'متوسط', c:'mid'};
+  return {t:'مخاطرة', c:'risk'};
+}
+function runDca(h1K){
+  if(!Array.isArray(h1K) || h1K.length < 120) return null;
+  const cands=h1K.map(k=>({h:+k[2], l:+k[3], c:+k[4]}));
+  const r=dcaSimulate(cands, 0.01, 0.012, 8, 0.002);
+  return {...r, safety:dcaSafety(r)};
+}
+function evaluateDca(r){
+  const d = r.dca;
+  const empty = {ok:false, hit:null, durH:null, score:null, rows:[], rec:null};
+  if(!d) return {...empty, durText:'—', cls:'bl-no', act:'لا تدخل',
+    head:'🔴 لا تدخل — تعذّر قياس DCA',
+    why:['ما توفّرت بيانات ساعة كافية (آخر ~٣٠ يوم) لقياس بوت متوسط التكلفة على هذه العملة.']};
+  if(d.stuck || d.netPct < 0) return {...empty, durText:'DCA غير مجدٍ', cls:'bl-no', act:'لا تدخل',
+    head:'🔴 لا تدخل — DCA يعلّق خسارة هنا',
+    why:[`على آخر ٣٠ يوم، بوت متوسط التكلفة انتهى ماسكًا خسارة (السعر ما رجع لهدفه). صاعدة بالاسم لكن ديناميكيتها تخذل الـDCA حاليًا.`]};
+  const sf=d.safety;
+  const cls=sf.c==='go'?'bl-go':(sf.c==='mid'?'bl-exp':'bl-no');
+  const score=clamp(55 + d.netPct*3 - d.worstDD*0.5 - d.unrealLossPct*0.8, 0, 100);
+  return {
+    ok:true, hit:null, durH:null, score,
+    durText:'متوسط التكلفة (DCA)',
+    cls, act:'شغّل بوت DCA',
+    head: sf.c==='go' ? '🟢 شغّل بوت متوسط التكلفة (DCA) — صاعد وآمن' : '🔵 شغّل بوت DCA — صاعد (حجم صغير)',
+    rows:[
+      ['📌 خطوة انخفاض السعر', '1%'],
+      ['📌 الحصول على الربح', '1.2% (≈ +1% صافي)'],
+      ['📌 الوضع · أقصى طلبات', 'إصلاح · 8'],
+      ['الربح المتوقع (آخر ٣٠ يوم)', `${d.netPct>=0?'+':''}${d.netPct.toFixed(2)}%`],
+      ['عدد دورات البيع', String(d.cycles)],
+      ['مستوى الأمان', sf.t]
+    ],
+    why:[
+      `صاعدة الآن — بوت متوسط التكلفة يؤتمت طريقتك: يشتري كل نزول ١٪، ويبيع الدفعة عند ربح ١٪، ويعيد، بلا سقف فيركب الصعود`,
+      `على آخر ٣٠ يوم أنجز ${d.cycles} دورة بيع، وأسوأ تراجع تحت متوسطك ${d.worstDD.toFixed(1)}%`,
+      `راقب: البوت بلا أرضية — إذا انقلبت لهبوط مستمر رح يشتري بلا توقف حتى ٨ طلبات. أوقفه لو كسر BTC أو انقلب الاتجاه`
+    ],
+    rec:{ type:'dca', sym:r.symbol, price:(r.livePrice??r.price), net:+d.netPct.toFixed(2) }
+  };
+}
+
+/* ==================== القرار (محرّك واحد) ==================== */
+function evaluate(r, haltLevel){
+  const sim = r.twapSim, best = sim ? sim.best : null;
+  const dr  = sim ? sim.durRange : null;
+  const durText = best ? durTxt(best.durH) : '—';
+  const durNote = (best && dr && dr.lo !== dr.hi) ? `أي مدة بين ${durTxt(dr.lo)} و${durTxt(dr.hi)} قريبة بالنتيجة — ${durText} أفضلها قليلًا` : null;
+  const base = {
+    ok:false, hit: best?best.hitRate:null, durH: best?best.durH:null, durText,
+    waitText: best && best.waitH!=null ? durTxt(best.waitH) : '—',
+    score: r.entry ? r.entry.score : null, rows:[], why:[], rec:null
+  };
+
+  if(haltLevel >= 1) return {...base, cls:'bl-wait', act:'انتظر',
+    head:'🟡 انتظر — حارس BTC مرفوع',
+    why:['لا دخول جديد حتى يهدأ السوق. أعد المسح بعد أن ينزل الحارس.']};
+
+  // عرضي نظيف → استراتيجية شبكة (البوت). صاعد/مختلط → تواب. هابط/غير نظيف → لا دخول.
+  if(r.state==='CLEAN_RANGE') return evaluateGrid(r);
+  if(r.state==='TRENDING_UP') return evaluateDca(r);
+
+  if(RISKY_STATES.has(r.state)){
+    const rg = r.regime, lbl = r.state==='TRENDING_DOWN' ? 'هابطة الآن' : 'عرضية غير نظيفة';
+    if(!rg || rg.prob == null) return {...base, cls:'bl-no', act:'لا تدخل',
+      head:`🔴 لا تدخل — ${lbl}، وعينة الارتداد صغيرة`,
+      why:[`عدد الحالات المشابهة (${rg?rg.sample:0}) أقل من ${REGIME_MIN_SAMPLE} — لا يمكن قياس احتمال ارتداد موثوق.`]};
+    if(rg.prob < REGIME_MIN) return {...base, cls:'bl-no', act:'لا تدخل',
+      head:`🔴 لا تدخل — ${lbl}، وترجيح الاستمرار أعلى من الارتداد`,
+      why:[`تاريخيًا خرجت من هذه الحالة خلال اليوم التالي في ${rg.prob}% فقط من ${rg.sample} حالة — أقل من حدّك ${REGIME_MIN}%.`]};
+  }
+
+  if(!sim) return {...base, cls:'bl-no', act:'لا تدخل',
+    head:'🔴 لا تدخل — تاريخ غير كافٍ',
+    why:['تحتاج ~١٦٦ يومًا من شموع ٤ ساعات لقياس هدفك. هذه العملة أحدث من ذلك.']};
+
+  if(best.hitRate < MIN_HIT) return {...base, cls:'bl-no', act:'لا تدخل',
+    head:'🔴 لا تدخل — لا تلحق مهلتك',
+    why:[`أفضل مدة وصلت +1% داخل ٣ أيام في ${best.hitRate}% فقط من ${best.tries} محاولة — أي ${100-best.hitRate}% من المرات تبقى ماسكًا بعد المهلة، والتراجع ${best.ddP90.toFixed(1)}% في أسوأ ١٠٪.`]};
+
+  if(best.ddP90 > MAX_DD) return {...base, cls:'bl-no', act:'لا تدخل',
+    head:'🔴 لا تدخل — التراجع أوسع من احتمالك',
+    why:[`تصل +1% في ${best.hitRate}% من المرات، لكن السعر ينزل ${best.ddP90.toFixed(1)}% تحت متوسطك في أسوأ ١٠٪ — أوسع من حدّك ${MAX_DD}%. الوصول لا يُقاس وحده؛ الطريق إليه يهمّ.`]};
+
+  const strong = best.hitRate >= 75 && best.ddP90 <= 4;
+  const why = [];
+  if(durNote) why.push(durNote);
+  if(RISKY_STATES.has(r.state) && r.regime.prob != null)
+    why.push(`الحالة خطر لكن الارتداد رجّح: خرجت منها خلال اليوم التالي في ${r.regime.prob}% من ${r.regime.sample} حالة`);
+  why.push(r.witness.n >= 15
+    ? `شاهد يومي (لا يرتّب ولا يمنع): +1% خلال ٧ أيام في ${Math.round(r.witness.winRate)}% من ${r.witness.n} حالة مشابهة، مقابل خط أساس ${Math.round(r.witness.baseline)}%`
+    : `شاهد يومي: العينة (${r.witness.n}) أصغر من أن تقول شيئًا`);
+
+  return {
+    ...base, ok:true, cls: strong?'bl-go':'bl-exp',
+    act: strong?'ادخل — حجم عادي':'ادخل — حجم صغير',
+    head: strong ? '🟢 ادخل — حجم عادي' : '🔵 ادخل — حجم صغير',
+    rows: [
+      ['📌 اكتب هذا الرقم في بينانس', durText],
+      ['⏳ الوقت الكلي حتى +1% (شراء ثم انتظار)', best.waitH!=null ? durTxt(best.waitH) : '—'],
+      ['نسبة النجاح', `${best.hitRate}% من ${best.tries} محاولة`],
+      ['أسوأ تراجع تحت متوسطك', `${best.ddP90.toFixed(1)}% (أسوأ ١٠٪)`]
+    ],
+    why,
+    rec: {type:'twap', sym:r.symbol, price:(r.livePrice ?? r.price), durH:best.durH, hit:best.hitRate}
+  };
+}
+
+/* ==================== ذاكرة المقارنة مع أمس ==================== */
+const MEM_KEY = 'quietScanner_mem_v2';
+let memFallback = null, memWorks = true;
+function memLoad(){
+  try{ const raw = localStorage.getItem(MEM_KEY); return raw ? JSON.parse(raw) : memFallback; }
+  catch(e){ memWorks=false; return memFallback; }
+}
+function memSave(o){ memFallback=o; try{ localStorage.setItem(MEM_KEY, JSON.stringify(o)); }catch(e){ memWorks=false; } }
+function clearMem(){
+  memFallback=null;
+  try{ localStorage.removeItem(MEM_KEY); }catch(e){}
+  const el=document.getElementById('memNote');
+  if(el) el.textContent='تم مسح الذاكرة — المقارنة تبدأ من المسح القادم.';
+}
+function snapOf(r, v){
+  return { symbol:r.symbol, state:r.state, cls:v.cls, hit:v.hit, durH:v.durH,
+           price:(r.livePrice ?? r.price) || null, score: v.score!=null ? +v.score.toFixed(1) : null };
+}
+function memRotate(snaps){
+  const today = localDay();
+  const store = memLoad() || {};
+  let prev = store.prev || null;
+  if(store.last && store.last.date !== today) prev = store.last;
+  memSave({ last:{date:today, ts:Date.now(), picks:snaps}, prev });
+  return prev;
+}
+function compareSnap(now, old){
+  if(!old) return {status:'new', text:'🆕 جديدة — ما كانت ضمن ترشيحات أمس.'};
+  const rs=[];
+  if(now.hit!=null && old.hit!=null && Math.abs(now.hit-old.hit) >= 5) rs.push(`نسبة النجاح ${old.hit}% ← ${now.hit}%`);
+  if(now.durH!=null && old.durH!=null && now.durH !== old.durH) rs.push(`المدة ${durTxt(old.durH)} ← ${durTxt(now.durH)}`);
+  if(now.state !== old.state) rs.push(`الحالة ${stateLabel(old.state)} ← ${stateLabel(now.state)}`);
+  if(now.cls !== old.cls) rs.push('تغيّر تصنيف القرار');
+  let px='';
+  if(old.price && now.price){
+    const d=(now.price/old.price-1)*100;
+    if(Math.abs(d) >= 0.1) px = `السعر ${d>=0?'+':''}${d.toFixed(1)}%`;
+  }
+  if(!rs.length) return {status:'stable', text:`🔒 ثابتة — نفس القرار والمدة منذ أمس${px?` (${px})`:''}.`};
+  return {status:'changed', text:'🔄 تغيّرت: '+rs.join(' · ')+(px?` · ${px}`:'')};
+}
+
+/* ==================== رسم الكروت (نتيجة صافية بلا شرح) ==================== */
+function renderCard(r, v, opts={}){
+  const {rank=null} = opts;
+  const rowsHTML = v.rows.length
+    ? `<div class="bl-rows">${v.rows.map(x=>`<div><span>${x[0]}</span><b>${x[1]}</b></div>`).join('')}</div>` : '';
+  const scoreHTML = v.score!=null ? `<span class="score">${v.score.toFixed(0)}/100</span>` : '';
+  const rankHTML  = rank!=null ? `<span class="rank">#${rank}</span>` : '';
+  return `<div class="card">
+    <div class="card-head">
+      <span class="symbol">${rankHTML}${r.symbol.replace('USDT','/USDT')}</span>
+      <div style="display:flex; gap:8px; align-items:center;">
+        ${scoreHTML}<span class="tag ${r.state}">${stateLabel(r.state)}${r.subLabel||''}</span>
+      </div>
+    </div>
+    <div class="bl ${v.cls}">
+      <div class="bl-head">${v.head}</div>
+      ${rowsHTML}
+    </div>
+  </div>`;
+}
+
+/* ==================== الرسم الرئيسي ==================== */
+function renderResults(results, haltLevel){
+  const el = document.getElementById('results');
+  if(!results.length){ el.innerHTML = '<div class="loading">لا توجد عملات مطابقة لفلتر السيولة.</div>'; return; }
+  const evals = results.map(r => ({ r, v: evaluate(r, haltLevel) }));
+  const eligible = evals.filter(x => x.v.ok).sort((a,b) => (b.v.score||0) - (a.v.score||0));
+  const top    = eligible.slice(0,3);
+  const backup = eligible.slice(3,8);
+
+  let html = '';
+  if(haltLevel >= 1){
+    html += `<div class="sec-head">🎯 أفضل 3 للدخول</div>
+      <div class="empty">موقوفة — حارس BTC في وضع ${haltLevel===1?'تحذير':'إيقاف'}.</div>`;
+  } else if(top.length){
+    html += `<div class="sec-head">🎯 أفضل 3 للدخول</div>`;
+    html += top.map((x,i) => renderCard(x.r, x.v, {rank:i+1})).join('');
+    if(backup.length){
+      html += `<div class="sec-head dim">عملات بديلة</div>`;
+      html += backup.map(x => renderCard(x.r, x.v)).join('');
+    }
+  } else {
+    html += `<div class="sec-head">🎯 أفضل 3 للدخول</div>
+      <div class="empty">ما في عملة عبرت الشروط اليوم.</div>`;
+  }
+  el.innerHTML = html;
+}
+
+/* ==================== المسح ==================== */
+document.getElementById('scanBtn').addEventListener('click', runScan);
+
+async function runScan(){
+  stampScan();
+  const btn = document.getElementById('scanBtn');
+  const statusEl = document.getElementById('status');
+  btn.disabled = true;
+  document.getElementById('results').innerHTML = '';
+  LAST_BAR = null;
+  statusEl.textContent = 'جارِ فحص BTC...';
+
+  const haltLevel = await checkBTCGuard();
+  const minVol = parseFloat(document.getElementById('minVolume').value || 20) * 1e6;
+  const count  = clamp(parseInt(document.getElementById('scanCount').value) || 15, 5, 40);
+
+  await analyzeWatchlist(haltLevel);
+
+  if(haltLevel >= 2){
+    statusEl.textContent = 'الحارس أوقف الفحص: BTC في هبوط حاد. لا فرص جديدة — لكن مراكزك المفتوحة أعلاه محلّلة.';
+    renderDayBar(); btn.disabled = false; return;
+  }
+
+  statusEl.textContent = 'جارِ جلب قائمة العملات...';
+  let candidates;
+  try{ candidates = await fetchCandidates(minVol, count); }
+  catch(e){ statusEl.textContent = 'خطأ في جلب القائمة: '+e.message; btn.disabled=false; return; }
+
+  if(!candidates.length){
+    statusEl.textContent = `ما في عملة حجمها فوق ${(minVol/1e6).toFixed(0)} مليون$ — نزّل الحد الأدنى.`;
+    btn.disabled = false; return;
+  }
+
+  statusEl.textContent = `جارِ تحليل ${candidates.length} عملة...`;
+  const results = [];
+  let done = 0;
+  for(const cand of candidates){
+    try{
+      const r = await analyzeSymbol(cand.symbol, parseFloat(cand.quoteVolume));
+      if(r) results.push(r);
+    }catch(e){ /* تجاوز */ }
+    done++;
+    if(done % 5 === 0){
+      statusEl.textContent = `جارِ التحليل... (${done}/${candidates.length})`;
+      await new Promise(res => setTimeout(res, 400));   // تفادي حظر 429
+    }
+  }
+
+  statusEl.textContent = `اكتمل — ${results.length} من ${candidates.length} عملة قابلة للقياس` +
+    (haltLevel===1 ? ' · تنبيه: الدخول الجديد موقوف بسبب حارس BTC' : '');
+  renderDayBar();
+  renderResults(results, haltLevel);
+  btn.disabled = false;
+}
+
+/* ==================== المراكز المفتوحة ==================== */
+function parseWatchSymbols(){
+  const raw = (document.getElementById('watchSymbols')?.value || '').trim();
+  if(!raw) return [];
+  return raw.split(/[,\s]+/)
+    .map(x => x.toUpperCase().replace(/USDT$/,''))
+    .filter(x => /^[A-Z0-9]{2,15}$/.test(x))   // v21: يمنع حقن HTML عبر الحقل
+    .map(x => x + 'USDT')
+    .filter((v,i,arr) => arr.indexOf(v) === i)
+    .slice(0, 10);
+}
+async function analyzeWatchlist(haltLevel){
+  const syms = parseWatchSymbols();
+  const el = document.getElementById('watchWrap');
+  if(!syms.length){ el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="loading">جارِ تحليل مراكزك المفتوحة...</div>';
+  const out = [];
+  for(const sym of syms){
+    try{
+      let vol = 0;
+      try{ const tv = await (await fetch(`${BASE}/ticker/24hr?symbol=${sym}`)).json(); vol = parseFloat(tv.quoteVolume) || 0; }catch(e){}
+      const r = await analyzeSymbol(sym, vol);
+      out.push(r ? renderCard(r, evaluate(r, haltLevel)) :
+        `<div class="card"><div class="card-head"><span class="symbol">${sym.replace('USDT','/USDT')}</span><span class="tag MIXED">غير قابلة للقياس</span></div>
+         <div class="plan">تاريخها أقصر من ${MIN_BARS} يومًا أو الرمز غلط. تأكد من الرمز (مثال: TRX).</div></div>`);
+    }catch(e){
+      out.push(`<div class="card"><div class="card-head"><span class="symbol">${sym.replace('USDT','/USDT')}</span><span class="tag MIXED">تعذّر الجلب</span></div></div>`);
+    }
+  }
+  el.innerHTML = `<div class="sec-head">📌 مراكزك المفتوحة</div>${out.join('')}
+    <div style="border-bottom:1px solid var(--line); margin:14px 0;"></div>`;
+}
+
+/* ==================== إقلاع ==================== */
+runScan();
+</script>
+</body>
+</html>
