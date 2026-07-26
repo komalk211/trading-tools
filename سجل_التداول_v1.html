@@ -88,6 +88,8 @@
     <label>العملة</label>
     <input id="coin" placeholder="SOL" autocapitalize="characters" spellcheck="false">
   </div>
+  <button type="button" onclick="pullFromScanner()" style="width:100%;background:#1c232c;border:1px solid #2a323d;color:#4f9dff;font-weight:700;font-size:14px;padding:11px;border-radius:10px;margin-bottom:8px;cursor:pointer;">📥 جيب التفاصيل من الماسح</button>
+  <div id="pullStatus" style="font-size:12px;line-height:1.5;margin-bottom:10px;min-height:14px;color:var(--muted);"></div>
   <div class="field">
     <label>الاستراتيجية</label>
     <div class="seg" id="strat">
@@ -136,6 +138,42 @@ $('strat').addEventListener('click', e=>{
   [...$('strat').children].forEach(x=>x.classList.remove('on'));
   b.classList.add('on'); strat = b.dataset.s;
 });
+
+/* ============ جسر: جلب اقتراح الماسح وتعبئة الحقول ============ */
+function fmtNum(n){
+  if(n==null || isNaN(n)) return '';
+  if(Math.abs(n) >= 1) return String(+n.toFixed(4));
+  return n.toFixed(10).replace(/0+$/,'').replace(/\.$/,'');
+}
+function setStrat(s){
+  strat = s;
+  [...$('strat').children].forEach(x=>x.classList.toggle('on', x.dataset.s===s));
+}
+function pullFromScanner(){
+  const coin = $('coin').value.trim().toUpperCase().replace('USDT','');
+  const st = $('pullStatus');
+  if(!coin){ $('coin').focus(); return; }
+  let data = null;
+  try{ const raw = localStorage.getItem('scannerRecs_v1'); if(raw) data = JSON.parse(raw); }catch(e){}
+  if(!data || !data.map){
+    st.style.color='var(--red)';
+    st.textContent='ما في نتائج ماسح محفوظة — افتح الماسح واعمل مسح أول.';
+    return;
+  }
+  const rec = data.map[coin];
+  if(!rec){
+    st.style.color='var(--red)';
+    st.textContent=`«${coin}» مش بآخر مسح — اكتب التفاصيل يدوي، أو ارجع للماسح وامسح من جديد.`;
+    return;
+  }
+  setStrat(rec.type);
+  $('entry').value = fmtNum(rec.price);
+  $('note').value  = rec.summary || '';
+  const m = Math.round((Date.now()-data.ts)/60000);
+  const ago = m < 1 ? 'أقل من دقيقة' : (m < 60 ? `${m} دقيقة` : `${Math.floor(m/60)} ساعة`);
+  st.style.color='var(--green)';
+  st.innerHTML = `✅ تعبّت من الماسح (قراءة قبل ${ago}). راجعها واضغط «سجّل الصفقة».`;
+}
 
 function load(){ try{ return JSON.parse(localStorage.getItem(KEY)||'[]'); }catch(e){ return []; } }
 function save(a){ try{ localStorage.setItem(KEY, JSON.stringify(a)); }catch(e){} }

@@ -990,11 +990,30 @@ function renderCard(r, v, opts={}){
   </div>`;
 }
 
+/* ============ جسر: حفظ اقتراحات الماسح ليقرأها السجل ============ */
+function saveScannerRecs(evals){
+  try{
+    const map = {};
+    evals.forEach(x=>{
+      const v = x.v, rec = v && v.rec;
+      if(!rec) return;
+      const base = rec.sym.replace(/USDT$/,'').toUpperCase();
+      let summary = '';
+      if(rec.type==='grid')      summary = `نطاق ${fmtPx(rec.L)}–${fmtPx(rec.U)} · ${rec.N} شبكة · متوقع ${rec.net>=0?'+':''}${rec.net}%`;
+      else if(rec.type==='twap') summary = `مدة ${v.durText}${rec.hit!=null?` · نجاح ${rec.hit}%`:''}`;
+      else if(rec.type==='dca')  summary = `DCA خطوة 1% / ربح 1.2% · متوقع ${rec.net>=0?'+':''}${rec.net}%`;
+      map[base] = { type:rec.type, price:rec.price, summary };
+    });
+    localStorage.setItem('scannerRecs_v1', JSON.stringify({ ts:Date.now(), map }));
+  }catch(e){}
+}
+
 /* ==================== الرسم الرئيسي ==================== */
 function renderResults(results, haltLevel){
   const el = document.getElementById('results');
   if(!results.length){ el.innerHTML = '<div class="loading">لا توجد عملات مطابقة لفلتر السيولة.</div>'; return; }
   const evals = results.map(r => ({ r, v: evaluate(r, haltLevel) }));
+  saveScannerRecs(evals);
   const eligible = evals.filter(x => x.v.ok).sort((a,b) => (b.v.score||0) - (a.v.score||0));
   const top    = eligible.slice(0,3);
   const backup = eligible.slice(3,8);
