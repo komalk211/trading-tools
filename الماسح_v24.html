@@ -1037,7 +1037,7 @@ async function runScan(){
 
   if(haltLevel >= 2){
     statusEl.textContent = 'الحارس أوقف الفحص: BTC في هبوط حاد. لا فرص جديدة — لكن مراكزك المفتوحة أعلاه محلّلة.';
-    renderDayBar(); btn.disabled = false; return;
+    renderDayBar(); saveSnapshot(); btn.disabled = false; return;
   }
 
   statusEl.textContent = 'جارِ جلب قائمة العملات...';
@@ -1069,6 +1069,7 @@ async function runScan(){
     (haltLevel===1 ? ' · تنبيه: الدخول الجديد موقوف بسبب حارس BTC' : '');
   renderDayBar();
   renderResults(results, haltLevel);
+  saveSnapshot();
   btn.disabled = false;
 }
 
@@ -1105,8 +1106,50 @@ async function analyzeWatchlist(haltLevel){
     <div style="border-bottom:1px solid var(--line); margin:14px 0;"></div>`;
 }
 
+/* ==================== حفظ/استرجاع آخر قراءة ==================== */
+const SNAP_KEY = 'quietScanner_snapshot_v1';
+
+function agoText(ms){
+  const m = Math.round((Date.now()-ms)/60000);
+  if(m < 1) return 'أقل من دقيقة';
+  if(m < 60) return `${m} دقيقة`;
+  const h = Math.floor(m/60), r = m%60;
+  const hw = h===1?'ساعة':(h===2?'ساعتين':(h<11?`${h} ساعات`:`${h} ساعة`));
+  return r ? `${hw} و${r} دقيقة` : hw;
+}
+
+function saveSnapshot(){
+  try{
+    const snap = {
+      ts: Date.now(),
+      results: document.getElementById('results').innerHTML,
+      watch:   document.getElementById('watchWrap').innerHTML,
+      dayBar:  document.getElementById('dayBar').innerHTML,
+      banner:  document.getElementById('btcBanner').innerHTML
+    };
+    localStorage.setItem(SNAP_KEY, JSON.stringify(snap));
+  }catch(e){}
+}
+
+function bootFromSnapshot(){
+  let snap = null;
+  try{ const raw = localStorage.getItem(SNAP_KEY); if(raw) snap = JSON.parse(raw); }catch(e){}
+  if(snap){
+    document.getElementById('results').innerHTML   = snap.results || '';
+    document.getElementById('watchWrap').innerHTML = snap.watch   || '';
+    document.getElementById('dayBar').innerHTML    = snap.dayBar  || '';
+    if(snap.banner) document.getElementById('btcBanner').innerHTML = snap.banner;
+    document.getElementById('status').innerHTML =
+      `📸 قراءات آخر فحص — قبل <b>${agoText(snap.ts)}</b>. اضغط <b>🔍 مسح السوق الآن</b> للتحديث.`;
+  } else {
+    document.getElementById('btcBanner').innerHTML = '';
+    document.getElementById('results').innerHTML =
+      '<div class="empty" style="padding:26px;text-align:center;color:var(--ink-dim)">اضغط <b>🔍 مسح السوق الآن</b> لأول فحص.</div>';
+  }
+}
+
 /* ==================== إقلاع ==================== */
-runScan();
+bootFromSnapshot();
 </script>
 </body>
 </html>
