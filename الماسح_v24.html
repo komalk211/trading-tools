@@ -770,6 +770,7 @@ function evaluateGrid(r){
   const score = clamp(55 + g.netPct*3 - g.belowPct*0.6 - g.unrealLossPct*0.8, 0, 100);
   return {
     ok:true, hit:null, durH:null, score,
+    dd:+(g.unrealLossPct||0).toFixed(1),
     durText:`شبكة ${fmtPx(g.L)}–${fmtPx(g.U)}`,
     cls, act:'شغّل شبكة',
     head: sf.c==='go' ? '🟢 شغّل شبكة — عرضي نظيف وآمن' : '🔵 شغّل شبكة — عرضي نظيف (حجم صغير)',
@@ -841,6 +842,7 @@ function evaluateDca(r){
   const score=clamp(55 + d.netPct*3 - d.worstDD*0.5 - d.unrealLossPct*0.8, 0, 100);
   return {
     ok:true, hit:null, durH:null, score,
+    dd:+d.worstDD.toFixed(1),
     durText:'متوسط التكلفة (DCA)',
     cls, act:'شغّل بوت DCA',
     head: sf.c==='go' ? '🟢 شغّل بوت متوسط التكلفة (DCA) — صاعد وآمن' : '🔵 شغّل بوت DCA — صاعد (حجم صغير)',
@@ -916,6 +918,7 @@ function evaluate(r, haltLevel){
     ...base, ok:true, cls: strong?'bl-go':'bl-exp',
     act: strong?'ادخل — حجم عادي':'ادخل — حجم صغير',
     head: strong ? '🟢 ادخل — حجم عادي' : '🔵 ادخل — حجم صغير',
+    dd: +best.ddP90.toFixed(1),
     rows: [
       ['📌 اكتب هذا الرقم في بينانس', durText],
       ['⏳ الوقت الكلي حتى +1% (شراء ثم انتظار)', best.waitH!=null ? durTxt(best.waitH) : '—'],
@@ -971,7 +974,10 @@ function compareSnap(now, old){
 
 /* ==================== رسم الكروت (نتيجة صافية بلا شرح) ==================== */
 function renderCard(r, v, opts={}){
-  const {rank=null} = opts;
+  const {rank=null, badges=[]} = opts;
+  const badgesHTML = badges.length
+    ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin:9px 0 2px;">${badges.map(b=>`<span style="font-size:11px;font-weight:700;background:${b.c}22;border:1px solid ${b.c}55;color:${b.c};padding:3px 10px;border-radius:20px;">${b.t}</span>`).join('')}</div>`
+    : '';
   const rowsHTML = v.rows.length
     ? `<div class="bl-rows">${v.rows.map(x=>`<div><span>${x[0]}</span><b>${x[1]}</b></div>`).join('')}</div>` : '';
   const scoreHTML = v.score!=null ? `<span class="score">${v.score.toFixed(0)}/100</span>` : '';
@@ -983,6 +989,7 @@ function renderCard(r, v, opts={}){
         ${scoreHTML}<span class="tag ${r.state}">${stateLabel(r.state)}${r.subLabel||''}</span>
       </div>
     </div>
+    ${badgesHTML}
     <div class="bl ${v.cls}">
       <div class="bl-head">${v.head}</div>
       ${rowsHTML}
@@ -1008,6 +1015,27 @@ function saveScannerRecs(evals){
   }catch(e){}
 }
 
+/* ============ أوسمة تمييز الأفضل 3 (لماذا هذا الترتيب) ============ */
+function computeBadges(top){
+  const b = top.map(()=>[]);
+  const withDD  = top.map((x,i)=>({i,v:x.v.dd  })).filter(o=>o.v!=null);
+  const withHit = top.map((x,i)=>({i,v:x.v.hit })).filter(o=>o.v!=null);
+  const withDur = top.map((x,i)=>({i,v:x.v.durH})).filter(o=>o.v!=null);
+  if(withDD.length>=2){
+    const m=Math.min(...withDD.map(o=>o.v));
+    withDD.filter(o=>o.v===m).forEach(o=>b[o.i].push({t:'🛡️ الأقل خطرًا', c:'#35C48F'}));
+  }
+  if(withHit.length>=2){
+    const m=Math.max(...withHit.map(o=>o.v));
+    withHit.filter(o=>o.v===m).forEach(o=>b[o.i].push({t:'🎯 الأعلى نجاحًا', c:'#5896E8'}));
+  }
+  if(withDur.length>=2){
+    const m=Math.min(...withDur.map(o=>o.v));
+    withDur.filter(o=>o.v===m).forEach(o=>b[o.i].push({t:'⚡ الأسرع', c:'#C9A15A'}));
+  }
+  return b;
+}
+
 /* ==================== الرسم الرئيسي ==================== */
 function renderResults(results, haltLevel){
   const el = document.getElementById('results');
@@ -1024,7 +1052,8 @@ function renderResults(results, haltLevel){
       <div class="empty">موقوفة — حارس BTC في وضع ${haltLevel===1?'تحذير':'إيقاف'}.</div>`;
   } else if(top.length){
     html += `<div class="sec-head">🎯 أفضل 3 للدخول</div>`;
-    html += top.map((x,i) => renderCard(x.r, x.v, {rank:i+1})).join('');
+    const badges = computeBadges(top);
+    html += top.map((x,i) => renderCard(x.r, x.v, {rank:i+1, badges:badges[i]})).join('');
     if(backup.length){
       html += `<div class="sec-head dim">عملات بديلة</div>`;
       html += backup.map(x => renderCard(x.r, x.v)).join('');
