@@ -687,6 +687,12 @@ async function analyzeSymbol(symbol, quoteVolume){
   // الصاعد يحتاج قياس بوت متوسط التكلفة DCA
   r.dca     = (c.state==='TRENDING_UP') ? runDca(h1K) : null;
 
+  // r22: نسبة القفزة الهستيرية — أعلى/أدنى سعر بآخر 30 يوم. قفزة كبيرة = خطر Pump&Dump
+  // (درس DEXE: طلعت من ~2$ لـ48.89$ بأسابيع، بعدها انهارت 85%+ — مؤشرات الحالة اليومية ما كانت لتلتقطها)
+  const last30 = dC.slice(-30);
+  const maniaHigh = Math.max(...last30), maniaLow = Math.min(...last30);
+  r.maniaRatio = maniaLow > 0 ? +(maniaHigh / maniaLow).toFixed(2) : null;
+
   // سياق 4 ساعات (عرض فقط)
   const hC = hK.map(k=>+k[4]), hH = hK.map(k=>+k[2]), hL = hK.map(k=>+k[3]);
   r.rsi4h = rsi(hC,14).at(-1);
@@ -878,6 +884,12 @@ function evaluate(r, haltLevel){
   if(haltLevel >= 1) return {...base, cls:'bl-wait', act:'انتظر',
     head:'🟡 انتظر — حارس BTC مرفوع',
     why:['لا دخول جديد حتى يهدأ السوق. أعد المسح بعد أن ينزل الحارس.']};
+
+  // r22: حارس القفزة الهستيرية — يمنع الدخول بأي استراتيجية بغض النظر عن الحالة الحالية
+  const MANIA_RATIO = 2.5;  // يعني السعر تقلّب 150%+ (من الأدنى للأعلى) خلال آخر 30 يوم
+  if(r.maniaRatio != null && r.maniaRatio >= MANIA_RATIO) return {...base, cls:'bl-no', act:'لا تدخل',
+    head:'🔴 لا تدخل — قفزة سعرية هستيرية مؤخرًا',
+    why:[`السعر تقلّب ${((r.maniaRatio-1)*100).toFixed(0)}% (من الأدنى للأعلى) خلال آخر 30 يوم — نمط Pump &amp; Dump كلاسيكي. حتى لو الحالة الحالية تبدو هادئة، خطر تفريغ من كبار الحاملين أو ثغرة عقد أعلى بكثير من المعتاد. تجاهلها لحد ما يمر وقت كافٍ ويهدأ التذبذب.`]};
 
   // عرضي نظيف → استراتيجية شبكة (البوت). صاعد/مختلط → تواب. هابط/غير نظيف → لا دخول.
   if(r.state==='CLEAN_RANGE') return evaluateGrid(r);
